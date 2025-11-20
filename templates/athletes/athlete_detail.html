@@ -1,0 +1,280 @@
+<!-- templates/athletes/athlete_detail.html -->
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ athlete.user.get_full_name }}'s Profile{% endblock %}
+
+{% block content %}
+<!-- Athlete Profile Card -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header text-dark d-flex justify-content-between align-items-center" style="background-color: #ffffff;">
+        <h2 class="mb-0">Athlete Profile</h2>
+        {% if user == athlete.user or user.coach == athlete.coach or user.role == 'ADMINISTRATOR' %}
+            <a href="{% url 'athlete-edit' pk=athlete.pk %}" class="btn btn-warning btn-sm fw-bold">Edit Profile</a>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-3 text-center mb-3 mb-md-0">
+                {% if athlete.user.image %}<img src="{{ athlete.user.image.url }}" class="img-fluid rounded shadow-sm mb-3" alt="{{ athlete.user.get_full_name }}">
+                {% else %}<img src="{% static 'images/default_profile.png' %}" class="img-fluid rounded shadow-sm mb-3" alt="Default Profile">{% endif %}
+            </div>
+            <div class="col-md-9">
+                <h3>{{ athlete.user.get_full_name }}</h3>
+                <p><strong>Team:</strong> {{ athlete.team|default:"Not assigned" }}</p>
+                <p><strong>Age:</strong> {{ athlete.user.age|default:"N/A" }} | <strong>Gender:</strong> {{ athlete.user.get_gender_display|default:"N/A" }}</p>
+                <p><strong>Username:</strong> {{ athlete.user.username }} | <strong>Birthday:</strong> {{ athlete.user.birthday|date:"F d, Y"|default:"N/A" }}</p>
+                <p><strong>Contact:</strong> {{ athlete.contact_details|default:"N/A" }} | <strong>Email:</strong> {{ athlete.user.email }}</p>
+                <p><strong>Medical History:</strong> {{ athlete.medical_history|linebreaksbr|default:"N/A" }}</p>
+                
+                {% if athlete.coach %}
+                    <hr>
+                    <div class="d-flex align-items-center">
+                        {% if athlete.coach.user.image %}<img src="{{ athlete.coach.user.image.url }}" class="rounded-circle me-3 shadow-sm" style="width: 50px; height: 50px; object-fit: cover;">
+                        {% else %}<img src="{% static 'images/default_profile.png' %}" class="rounded-circle me-3 shadow-sm" style="width: 50px; height: 50px; object-fit: cover;">{% endif %}
+                        <div>
+                            <p class="mb-0 fw-bold text-muted">Assigned Coach:</p>
+                            <a href="{{ athlete.coach.get_absolute_url }}" class="h5 mb-0 text-decoration-none text-dark">{{ athlete.coach.user.get_full_name }}</a>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Interactive Performance Statistics Card -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: #b70707;">
+        <h3 class="mb-0">Game-by-Game Performance</h3>
+        
+        <!-- Navigation Buttons for the "flipper" -->
+        <div id="stats-nav-container" style="display: none;"> {# Hidden by default, shown by JS #}
+            <button class="btn btn-light btn-sm" id="prev-event-btn" title="View Older Game">&lt; Prev Game</button>
+            <button class="btn btn-light btn-sm" id="next-event-btn" title="View Newer Game">Next Game &gt;</button>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- This is where the dynamic event title will go, updated by JavaScript -->
+        <div id="event-stats-header" class="text-center mb-3">
+            {% if current_event %}
+                <h4>{{ current_event.name }}</h4>
+                <p class="text-muted">{{ current_event.start_time|date:"F d, Y" }}</p>
+            {% else %}
+                <p class="text-muted">No game statistics found.</p>
+            {% endif %}
+        </div>
+        <div class="table-responsive mb-3">
+            <table class="table table-striped table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Statistic</th>
+                        <th class="text-end">Value</th>
+                    </tr>
+                </thead>
+                <!-- This table body will be dynamically updated by your JavaScript -->
+                <tbody id="stats-table-body">
+                    {% for stat in performance_stats %}
+                        <tr>
+                            <td>{{ stat.statistic.name }}</td>
+                            <td class="text-end">{{ stat.value }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="2" class="text-center text-muted py-3">No statistics were recorded for this event.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- CHARTS ROW -->
+<div class="row">
+    <!-- Statistics Overview BAR Chart with Filters -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100 shadow-sm border-0">
+            <div class="card-header text-white" style="background-color: #b70707;"><h3 class="mb-0">Statistics Overview</h3></div>
+            <div class="card-body d-flex flex-column">
+                <form id="statsOverviewFilterForm" class="row g-2 mb-3">
+                    <div class="col-md-4"><select id="eventFilter" class="form-select form-select-sm"><option value="">All Games</option>{% for event in events_with_stats %}<option value="{{ event.pk }}">{{ event.name }}</option>{% endfor %}</select></div>
+                    <div class="col-md-4"><select id="yearFilter" class="form-select form-select-sm"><option value="">All Years</option>{% for year in years_with_stats %}<option value="{{ year }}">{{ year }}</option>{% endfor %}</select></div>
+                    <div class="col-md-4"><select id="monthFilter" class="form-select form-select-sm" disabled><option value="">All Months</option></select></div>
+                </form>
+                <div class="flex-grow-1" style="position: relative; min-height: 30vh;">
+                    <canvas id="athleteStatsOverviewChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Longitudinal Performance Trend Chart -->
+
+    <div class="col-md-6 mb-4">
+        <div class="card h-100 shadow-sm border-0">
+            <div class="card-header text-white" style="background-color: #b70707;">
+                <h3 class="mb-0">Longitudinal Performance Trend</h3>
+            </div>
+            <div class="card-body">
+                {% if performance_stats %}
+                    <!-- Stats Row -->
+                    <div class="stats-scroll-container mb-3">
+                        {% for stat, value in performance_stats.items %}
+                            <div class="stat-item text-center">
+                                <h5 class="stat-name">{{ stat }}</h5>
+                                <p class="stat-value">{{ value }}</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Chart -->
+                    <div class="flex-grow-1" style="position: relative; min-height: 45vh;">
+                        <canvas id="performanceTrendChart"></canvas>
+                    </div>
+                {% else %}
+                    <p class="text-center text-muted mt-4">No data available to chart.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Navigation -->
+<div class="mt-4 text-center">
+    <a href="{% url 'athlete-list' %}" class="btn btn-secondary px-4 py-2">Back to Roster</a>
+</div>
+
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    const athleteId = {{ athlete.pk }};
+
+    // =======================================================
+    // === 1. INTERACTIVE STATS "FLIPPER" LOGIC ===
+    // =======================================================
+    const eventIds = {{ event_ids_json|safe }};
+    if (eventIds && eventIds.length > 0) {
+        let currentIndex = 0;
+        const prevBtn = $('#prev-event-btn');
+        const nextBtn = $('#next-event-btn');
+        const statsHeader = $('#event-stats-header');
+        const statsBody = $('#stats-table-body');
+        const navContainer = $('#stats-nav-container');
+
+        function updateStatsDisplay(eventId) {
+            const url = `{% url 'get-athlete-event-stats' %}?athlete_id=${athleteId}&event_id=${eventId}`;
+            statsHeader.html('<p class="text-muted">Loading...</p>');
+            fetch(url).then(response => response.json()).then(data => {
+                statsHeader.html(`<h4>${data.event_name}</h4><p class="text-muted">${data.event_date}</p>`);
+                statsBody.empty();
+                if (data.stats && data.stats.length > 0) {
+                    data.stats.forEach(stat => {
+                        statsBody.append(`<tr><td>${stat.name}</td><td class="text-end">${stat.value}</td></tr>`);
+                    });
+                } else {
+                    statsBody.append('<tr><td colspan="2" class="text-center text-muted py-3">No stats recorded for this event.</td></tr>');
+                }
+            });
+        }
+
+        function updateButtonStates() {
+            nextBtn.prop('disabled', currentIndex === 0);
+            prevBtn.prop('disabled', currentIndex >= eventIds.length - 1);
+        }
+
+        nextBtn.on('click', function() { if (currentIndex > 0) { currentIndex--; updateStatsDisplay(eventIds[currentIndex]); updateButtonStates(); } });
+        prevBtn.on('click', function() { if (currentIndex < eventIds.length - 1) { currentIndex++; updateStatsDisplay(eventIds[currentIndex]); updateButtonStates(); } });
+
+        if (eventIds.length > 1) {
+            navContainer.show();
+            updateButtonStates();
+        }
+    }
+
+
+    // =======================================================
+    // === 2. INTERACTIVE OVERVIEW BAR CHART LOGIC (COMPLETE) ===
+    // =======================================================
+    const overviewCtx = document.getElementById('athleteStatsOverviewChart');
+    if (overviewCtx) {
+        let myOverviewChart = null;
+        const eventFilter = $('#eventFilter');
+        const yearFilter = $('#yearFilter');
+        const monthFilter = $('#monthFilter');
+
+        // This is the full, correct function
+        function renderOverviewChart() {
+            const eventId = eventFilter.val();
+            const year = yearFilter.val();
+            const month = monthFilter.val();
+            let url = `{% url 'get-stats-summary-data' %}?athlete_id=${athleteId}`;
+            if (eventId) {
+                url += `&event_id=${eventId}`;
+            } else {
+                if (year) url += `&year=${year}`;
+                if (month) url += `&month=${month}`;
+            }
+            fetch(url).then(response => response.json()).then(result => {
+                if (myOverviewChart) { myOverviewChart.destroy(); }
+                if (result.labels && result.labels.length > 0) {
+                    myOverviewChart = new Chart(overviewCtx.getContext('2d'), {
+                        type: 'bar',
+                        data: { labels: result.labels, datasets: [{ label: 'Total Value', data: result.data, backgroundColor: 'rgba(23, 162, 184, 0.6)' }] },
+                        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { beginAtZero: true } }, plugins: { legend: { display: false }, title: { display: true, text: 'Statistics Summary' } } }
+                    });
+                } else {
+                    overviewCtx.getContext('2d').clearRect(0, 0, overviewCtx.width, overviewCtx.height);
+                    overviewCtx.parentNode.innerHTML = '<p class="text-center text-muted mt-5">No statistics found for this filter.</p>';
+                }
+            });
+        }
+
+        eventFilter.on('change', function() {
+            const isDisabled = $(this).val() !== "";
+            yearFilter.prop('disabled', isDisabled).val('');
+            monthFilter.prop('disabled', true).val('');
+            renderOverviewChart();
+        });
+        yearFilter.on('change', function() {
+            const year = $(this).val();
+            monthFilter.html('<option value="">All Months</option>').prop('disabled', true);
+            if (year) {
+                const url = `{% url 'get-months-for-year' %}?athlete_id=${athleteId}&year=${year}`;
+                fetch(url).then(response => response.json()).then(months => {
+                    if (months && months.length > 0) {
+                        let monthOptions = '<option value="">All Months</option>';
+                        months.forEach(month => { monthOptions += `<option value="${month.id}">${month.name}</option>`; });
+                        monthFilter.html(monthOptions).prop('disabled', false);
+                    }
+                });
+            }
+            renderOverviewChart();
+        });
+        monthFilter.on('change', renderOverviewChart);
+        renderOverviewChart(); // Initial render
+    }
+
+
+    // =======================================================
+    // === 3. AUTO-LOADING TREND LINE CHART LOGIC ===
+    // =======================================================
+    const trendCtx = document.getElementById('performanceTrendChart');
+    if (trendCtx) {
+        const trendUrl = `{% url 'get-performance-chart-data' %}?athlete_id=${athleteId}&chart_type=multiline_trend`;
+        fetch(trendUrl).then(response => response.json()).then(result => {
+            if (result.labels && result.labels.length > 0) {
+                new Chart(trendCtx.getContext('2d'), {
+                    type: 'line',
+                    data: { labels: result.labels, datasets: result.datasets },
+                    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { y: { beginAtZero: false, title: { display: true, text: 'Value' } }, x: { title: { display: true, text: 'Event Date' } } }, plugins: { title: { display: true, text: 'Performance Trend Over Time' }, tooltip: { mode: 'index', intersect: false } } }
+                });
+            } else {
+                trendCtx.parentNode.innerHTML = '<p class="text-center text-muted mt-5">Not enough data to plot a trend.</p>';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

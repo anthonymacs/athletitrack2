@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Bulk Add Athletes{% endblock %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+
+  {% if show_formset %}
+  <!-- ============================================= -->
+  <!-- === STEP 2: SHOW THE EXPANDABLE FORMSET === -->
+  <!-- ============================================= -->
+  <div class="card shadow-lg border-0">
+    <div class="card-header bg-maroon text-white text-center py-4 rounded-top">
+      <h2 class="mb-0">Step 2: Add Athletes to <span class="fw-bold">{{ selected_team }}</span></h2>
+    </div>
+
+    <div class="card-body bg-light p-4">
+      <p class="mb-4 text-muted">Fill out the rows for each new athlete. Use the “Add Another Row” button below if needed.</p>
+
+      <form method="post" enctype="multipart/form-data" action="?team={{ selected_team.id }}">
+        {% csrf_token %}
+        {{ formset.management_form }}
+
+        <div class="table-responsive">
+          <table class="table table-hover align-middle border rounded bg-white">
+            <thead class="bg-maroon text-white">
+              <tr>
+                <th style="background-color: #b70707;">First Name</th>
+                <th style="background-color: #b70707;">Last Name</th>
+                <th style="background-color: #b70707;">Email</th>
+                <th style="background-color: #b70707;">Birthday</th>
+                <th style="background-color: #b70707;">Image</th>
+              </tr>
+            </thead>
+            <tbody id="formset-container">
+              {% for form in formset %}
+              <tr class="form-row">
+                <td>{{ form.first_name }}</td>
+                <td>{{ form.last_name }}</td>
+                <td>{{ form.email }}</td>
+                <td>{{ form.birthday }}</td>
+                <td>{{ form.image }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Hidden template for new forms -->
+        <table style="display: none;">
+          <tbody id="empty-form-template">
+            <tr class="form-row">
+              <td>{{ formset.empty_form.first_name }}</td>
+              <td>{{ formset.empty_form.last_name }}</td>
+              <td>{{ formset.empty_form.email }}</td>
+              <td>{{ formset.empty_form.birthday }}</td>
+              <td>{{ formset.empty_form.image }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="d-flex justify-content-between align-items-center mt-4">
+          <button type="button" id="add-form-button" class="btn btn-success fw-semibold">
+            + Add Another Row
+          </button>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-maroon px-4">Save Athletes</button>
+            <a href="{% url 'athlete-list' %}" class="btn btn-secondary px-4">Cancel</a>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% else %}
+  <!-- ============================================= -->
+  <!-- === STEP 1: TEAM SELECTION VIEW === -->
+  <!-- ============================================= -->
+  <div class="card shadow-lg border-0 mx-auto" style="max-width: 500px;">
+    <div class="card-header bg-maroon text-white text-center py-3">
+      <h2 class="mb-0">Step 1: Select a Team</h2>
+    </div>
+
+    <div class="card-body bg-light p-4">
+      <p class="text-muted text-center">Choose a team to add new athletes.</p>
+      <form method="get">
+        <div class="mb-3">
+          <label for="{{ filter_form.team.id_for_label }}" class="form-label fw-semibold">
+            {{ filter_form.team.label }}
+          </label>
+          {{ filter_form.team }}
+        </div>
+        <button type="submit" class="btn btn-maroon w-100 py-2 fw-semibold">
+          Next: Add Athletes
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  $(document).ready(function () {
+    // ✅ Enhance the select dropdown
+    $('.select2-filter').select2({
+      theme: 'bootstrap-5',
+      placeholder: 'Type to search for a team...'
+    });
+
+    // ✅ Add dynamic new form rows
+    const addFormButton = document.getElementById('add-form-button');
+    if (addFormButton) {
+      const formsetContainer = document.getElementById('formset-container');
+      const emptyFormTemplate = document.getElementById('empty-form-template').innerHTML;
+      const totalFormsInput = document.getElementById('id_form-TOTAL_FORMS');
+
+      addFormButton.addEventListener('click', function () {
+        let currentFormCount = parseInt(totalFormsInput.value);
+        let newFormHtml = emptyFormTemplate.replace(/__prefix__/g, currentFormCount);
+        formsetContainer.insertAdjacentHTML('beforeend', newFormHtml);
+        totalFormsInput.value = currentFormCount + 1;
+      });
+    }
+  });
+</script>
+{% endblock %}

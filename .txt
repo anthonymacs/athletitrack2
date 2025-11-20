@@ -1,0 +1,20 @@
+python manage.py qcluster
+style="background-color: #b70707;"
+#b70707
+.\ngrok http 8000 
+  
+////////////
+from django_q.tasks import async_task
+
+# Replace 1 with a real Event ID that has participants
+event_id_to_test = 13
+
+print(f"Manually pushing email reminder for Event ID: {event_id_to_test}")
+async_task('events.tasks.send_event_reminders', event_id_to_test)
+print("Task pushed to the queue.")
+
+///////////
+
+to get temporary link---- cloudflared tunnel --url http://localhost:8000
+
+//-manifest.jason  "theme_color": "#0d6efd", //

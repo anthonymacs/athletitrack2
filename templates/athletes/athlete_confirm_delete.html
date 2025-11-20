@@ -1,0 +1,21 @@
+<!-- templates/athletes/athlete_confirm_delete.html -->
+{% extends "base.html" %}
+{% block content %}
+<form method="post">
+    {% csrf_token %}
+    <div class="card shadow-sm" style="max-width: 500px; margin: auto;">
+        <div class="card-header bg-danger text-white"><h3 class="mb-0">Confirm Deletion</h3></div>
+        <div class="card-body">
+            <p>Are you sure you want to permanently delete the athlete:</p>
+            <h4 class="text-center">"{{ user_to_delete.get_full_name }}"?</h4>
+            <p class="text-danger mt-3">
+                <strong>Warning:</strong> This will delete their user account, their profile, all of their performance stats, and remove them from all events. This action cannot be undone.
+            </p>
+            <div class="d-flex justify-content-end mt-4">
+                <a href="{% url 'athlete-list' %}" class="btn btn-secondary me-2">Cancel</a>
+                <button type="submit" class="btn btn-danger">Yes, Delete Permanently</button>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}

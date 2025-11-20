@@ -1,0 +1,26 @@
+<!-- templates/coaches/coach_confirm_delete.html -->
+{% extends "base.html" %}
+
+{% block title %}Confirm Coach Deletion{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm" style="max-width: 500px; margin: 3rem auto;">
+    <div class="card-header bg-danger text-white">
+        <h3 class="mb-0">Confirm Permanent Deletion</h3>
+    </div>
+    <div class="card-body">
+        <p>Are you sure you want to permanently delete the coach:</p>
+        <h4 class="text-center my-3">"{{ user_to_delete.get_full_name }}"?</h4>
+        <p class="text-danger">
+            <strong>Warning:</strong> This will delete their user account and profile. They will be unassigned from their team and any events they are in charge of. This action cannot be undone.
+        </p>
+        <form method="post" class="mt-4">
+            {% csrf_token %}
+            <div class="d-flex justify-content-end">
+                <a href="{% url 'coach-list' %}" class="btn btn-secondary me-2">Cancel</a>
+                <button type="submit" class="btn btn-danger">Yes, Delete Permanently</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,7 @@
+tunnel: 7dc504d1-5887-40c3-8e78-377d790c9fc8
+credentials-file: C:\Users\johnp\.cloudflared\7dc504d1-5887-40c3-8e78-377d790c9fc8.json
+
+ingress:
+  - hostname: athletitrack.com
+    service: http://localhost:8000
+  - service: http_status:404

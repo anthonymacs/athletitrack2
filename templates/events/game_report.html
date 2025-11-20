@@ -1,0 +1,205 @@
+<!-- templates/events/game_report.html -->
+{% extends "base.html" %}
+{% load static custom_filters %}
+
+{% block title %}Game Report: {{ event.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2>Game Report</h2>
+        <h4 class="text-primary">{{ event.name }}</h4>
+        <h6 class="text-muted">{{ event.start_time|date:"F d, Y" }}</h6>
+    </div>
+    <a href="{% url 'event-detail' pk=event.pk %}" class="btn btn-secondary">Back to Event Details</a>
+</div>
+
+<!-- Scoreboard Card -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header"><h4 class="mb-0">Scoreboard</h4></div>
+    <div class="card-body">
+        <p class="text-muted small">Enter the final score to automatically record a "Win" or "Loss" for all participants.</p>
+        <form method="post">
+            {% csrf_token %}
+            <div class="row align-items-end">
+                <div class="col-md-5">
+                    <label for="{{ outcome_form.our_score.id_for_label }}" class="form-label fw-bold">{{ outcome_form.our_score.label }}</label>
+                    {{ outcome_form.our_score }}
+                </div>
+                <div class="col-md-5">
+                    <label for="{{ outcome_form.opponent_score.id_for_label }}" class="form-label fw-bold">{{ outcome_form.opponent_score.label }}</label>
+                    {{ outcome_form.opponent_score }}
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" name="save_outcome" class="btn btn-primary w-100">Save Score</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Player Statistics Card -->
+<div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h4 class="mb-0">Individual Player Statistics</h4>
+        <span id="auto-save-status" class="text-muted small"></span>
+    </div>
+    <div class="card-body">
+        {% if participants %}
+        <form id="player-stats-form">
+            {% csrf_token %}
+            <div class="table-responsive table-fixed-header">
+                <table class="table table-bordered table-sm" id="player-stats-table">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th style="min-width: 200px;">Participant</th>
+                            {% if first_form %}{% for field in first_form %}
+                                <th class="text-center" style="min-width: 150px;">{{ field.label }}</th>
+                            {% endfor %}{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for athlete in participants %}
+                        <tr data-athlete-id="{{ athlete.pk }}">
+                            <td class="align-middle">
+                                <div class="d-flex align-items-center">
+                                    {% if athlete.user.image %}<img src="{{ athlete.user.image.url }}" class="rounded-circle me-2" style="width:30px;height:30px;object-fit:cover;">
+                                    {% else %}<img src="{% static 'images/default_profile.png' %}" class="rounded-circle me-2" style="width:30px;height:30px;object-fit:cover;">{% endif %}
+                                    <strong>{{ athlete.user.get_full_name }}</strong>
+                                </div>
+                            </td>
+                            {% with form=participant_forms|get_item:athlete.pk %}
+                                {% for field in form %}
+                                    <td>
+                                        <div class="input-group input-group-sm">
+                                            <button class="btn btn-outline-secondary decrement-btn" type="button" tabindex="-1">-</button>
+                                            <!-- We use the simple {{ field }} rendering. The JavaScript will handle the rest. -->
+                                            {{ field }}
+                                            <button class="btn btn-outline-secondary increment-btn" type="button" tabindex="-1">+</button>
+                                        </div>
+                                    </td>
+                                {% endfor %}
+                            {% endwith %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-light">
+                            <th class="text-end">Team Totals:</th>
+                            {% if first_form %}{% for field in first_form %}
+                                <!-- The 'data-total-for' uses the clean field name (the short_name) -->
+                                <th class="text-center fw-bold" data-total-for="{{ field.name }}">0</th>
+                            {% endfor %}{% endif %}
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <!-- The manual save button is removed -->
+        </form>
+        {% else %}
+            <p class="mb-0">There are no participants in this event to create a report for.</p>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.table-fixed-header { height: 60vh; overflow-y: auto; }
+</style>
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    const statsTable = $('#player-stats-table');
+    if (!statsTable.length) return;
+
+    const autoSaveStatus = $('#auto-save-status');
+    const csrfToken = $('[name=csrfmiddlewaretoken]').val();
+    const eventId = {{ event.pk }};
+    let debounceTimer;
+
+    function debounce(func, delay) {
+        return function() {
+            const context = this;
+            const args = arguments;
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => func.apply(context, args), delay);
+        };
+    }
+
+    function autoSaveStat(inputElement) {
+        const input = $(inputElement);
+        const athleteId = input.closest('tr').data('athlete-id');
+        const rawName = input.attr('name');
+        const statShortName = rawName.split('-').pop(); // 'prefix-short_name' -> 'short_name'
+        const value = input.val();
+
+        autoSaveStatus.text('Saving...').removeClass('text-success text-danger').addClass('text-info');
+
+        fetch(`{% url 'auto-save-stat' %}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken },
+            body: new URLSearchParams({
+                'athlete_id': athleteId, 'event_id': eventId, 'stat_short_name': statShortName, 'value': value
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                autoSaveStatus.text('Saved!').removeClass('text-info text-danger').addClass('text-success');
+            } else {
+                autoSaveStatus.text('Save Failed!').removeClass('text-info').addClass('text-danger');
+            }
+        })
+        .catch(error => {
+            console.error('Auto-save error:', error);
+            autoSaveStatus.text('Error!').removeClass('text-info').addClass('text-danger');
+        });
+    }
+
+    const debouncedAutoSave = debounce(autoSaveStat, 1500);
+
+    // --- SCRIPT FOR +/- BUTTONS ---
+    statsTable.on('click', '.increment-btn, .decrement-btn', function() {
+        const button = $(this);
+        const input = button.siblings('input[type="number"]');
+        let currentValue = parseInt(input.val(), 10) || 0;
+        if (button.hasClass('increment-btn')) {
+            input.val(currentValue + 1);
+        } else if (currentValue > 0) {
+            input.val(currentValue - 1);
+        }
+        input.trigger('input'); // Trigger both totals and auto-save
+    });
+
+    // --- SCRIPT FOR CALCULATING COLUMN TOTALS ---
+    function calculateColumnTotals() {
+        statsTable.find('tfoot [data-total-for]').each(function() {
+            const footerCell = $(this);
+            const cleanFieldName = footerCell.data('total-for'); // e.g., "ppg"
+            
+            // This selector finds inputs whose 'name' *ends with* '-ppg'.
+            // This is the key to matching the formset fields correctly.
+            const inputs = statsTable.find(`tbody input[name$="-${cleanFieldName}"]`);
+            
+            let total = 0;
+            inputs.each(function() {
+                const value = parseFloat($(this).val());
+                if (!isNaN(value)) { total += value; }
+            });
+            footerCell.text(Number.isInteger(total) ? total : total.toFixed(1));
+        });
+    }
+
+    // --- ATTACH LISTENERS ---
+    statsTable.on('input', 'input[type="number"]', function() {
+        debouncedAutoSave(this);
+        calculateColumnTotals();
+    });
+
+    // --- INITIAL CALCULATION ---
+    calculateColumnTotals();
+});
+</script>
+{% endblock %}

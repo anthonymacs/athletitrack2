@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ form_title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-9 col-md-10">
+      <div class="card shadow-lg border-0">
+        <div class="card-header bg-maroon text-white text-center py-4 rounded-top">
+          <h2 class="mb-0">{{ form_title }}</h2>
+        </div>
+        <div class="card-body p-4 bg-light">
+
+          <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            {% with user_form=form2|default:form profile_form=profile_form|default:form %}
+
+            <!-- SECTION 1: User Details -->
+            <h5 class="text-maroon mb-3 fw-bold">User Details</h5>
+            <div class="form-section bg-white p-3 rounded shadow-sm mb-4">
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">{{ user_form.first_name.label }}</label>
+                  {{ user_form.first_name }}
+                  <div class="text-danger small">{{ user_form.first_name.errors }}</div>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">{{ user_form.last_name.label }}</label>
+                  {{ user_form.last_name }}
+                  <div class="text-danger small">{{ user_form.last_name.errors }}</div>
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">{{ user_form.email.label }}</label>
+                  {{ user_form.email }}
+                  <div class="text-danger small">{{ user_form.email.errors }}</div>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">{{ user_form.gender.label }}</label>
+                  {{ user_form.gender }}
+                  <div class="text-danger small">{{ user_form.gender.errors }}</div>
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">{{ user_form.birthday.label }}</label>
+                  {{ user_form.birthday }}
+                  <div class="text-danger small">{{ user_form.birthday.errors }}</div>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">{{ user_form.image.label }}</label>
+                  {{ user_form.image }}
+                  <div class="text-danger small">{{ user_form.image.errors }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- SECTION 2: Profile Details -->
+            <h5 class="text-maroon mb-3 fw-bold">Profile Details</h5>
+            <div class="form-section bg-white p-3 rounded shadow-sm">
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">{{ profile_form.team.label }}</label>
+                  {{ profile_form.team }}
+                  <div class="text-danger small">{{ profile_form.team.errors }}</div>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">{{ profile_form.contact_details.label }}</label>
+                  {{ profile_form.contact_details }}
+                  <div class="text-danger small">{{ profile_form.contact_details.errors }}</div>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">{{ profile_form.medical_history.label }}</label>
+                {{ profile_form.medical_history }}
+                <div class="text-danger small">{{ profile_form.medical_history.errors }}</div>
+              </div>
+
+              <div class="form-check mb-3">
+                {{ profile_form.is_featured }}
+                <label class="form-check-label">{{ profile_form.is_featured.label }}</label>
+                {% if profile_form.is_featured.help_text %}
+                <div class="form-text">{{ profile_form.is_featured.help_text }}</div>
+                {% endif %}
+              </div>
+            </div>
+            {% endwith %}
+
+            <div class="d-flex justify-content-end gap-2 mt-4">
+              <a href="{% url 'athlete-list' %}" class="btn btn-secondary px-4 py-2 fw-semibold">Cancel</a>
+              <button type="submit" class="btn btn-maroon px-4 py-2 fw-semibold">Save Changes</button>
+            </div>
+          </form>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  $(document).ready(function() {
+    $('.select2-filter').select2({
+      theme: 'bootstrap-5',
+      placeholder: 'Select a team'
+    });
+  });
+</script>
+{% endblock %}
